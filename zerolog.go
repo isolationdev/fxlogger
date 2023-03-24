@@ -10,14 +10,15 @@ import (
 	"go.uber.org/fx/fxevent"
 )
 
-type logger struct {
-	Logger zerolog.Logger
+type FxEventLogger struct {
+	Logger     zerolog.Logger
+	EventLevel zerolog.Level
 }
 
-func (l *logger) LogEvent(event fxevent.Event) {
+func (l *FxEventLogger) LogEvent(event fxevent.Event) {
 	switch e := event.(type) {
 	case *fxevent.OnStartExecuting:
-		l.Logger.Info().Str("callee", e.FunctionName).
+		l.Logger.WithLevel(l.EventLevel).Str("callee", e.FunctionName).
 			Str("caller", e.CallerName).
 			Msg("OnStart hook executing")
 	case *fxevent.OnStartExecuted:
@@ -27,13 +28,13 @@ func (l *logger) LogEvent(event fxevent.Event) {
 				Str("caller", e.CallerName).
 				Msg("OnStart hook failed")
 		} else {
-			l.Logger.Info().Str("callee", e.FunctionName).
+			l.Logger.WithLevel(l.EventLevel).Str("callee", e.FunctionName).
 				Str("caller", e.CallerName).
 				Str("runtime", e.Runtime.String()).
 				Msg("OnStart hook executed")
 		}
 	case *fxevent.OnStopExecuting:
-		l.Logger.Info().Str("callee", e.FunctionName).
+		l.Logger.WithLevel(l.EventLevel).Str("callee", e.FunctionName).
 			Str("caller", e.CallerName).
 			Msg("OnStop hook executing")
 	case *fxevent.OnStopExecuted:
@@ -43,7 +44,7 @@ func (l *logger) LogEvent(event fxevent.Event) {
 				Str("callee", e.CallerName).
 				Msg("OnStop hook failed")
 		} else {
-			l.Logger.Info().Str("callee", e.FunctionName).
+			l.Logger.WithLevel(l.EventLevel).Str("callee", e.FunctionName).
 				Str("caller", e.CallerName).
 				Str("runtime", e.Runtime.String()).
 				Msg("OnStop hook executed")
@@ -52,11 +53,11 @@ func (l *logger) LogEvent(event fxevent.Event) {
 		if e.Err != nil {
 			l.Logger.Warn().Err(e.Err).Str("type", e.TypeName).Msg("supplied")
 		} else {
-			l.Logger.Info().Str("type", e.TypeName).Msg("supplied")
+			l.Logger.WithLevel(l.EventLevel).Str("type", e.TypeName).Msg("supplied")
 		}
 	case *fxevent.Provided:
 		for _, rtype := range e.OutputTypeNames {
-			l.Logger.Info().Str("type", rtype).
+			l.Logger.WithLevel(l.EventLevel).Str("type", rtype).
 				Str("constructor", e.ConstructorName).
 				Msg("provided")
 		}
@@ -71,10 +72,10 @@ func (l *logger) LogEvent(event fxevent.Event) {
 			l.Logger.Error().Err(e.Err).Str("stack", e.Trace).
 				Str("function", e.FunctionName).Msg("invoke failed")
 		} else {
-			l.Logger.Info().Str("function", e.FunctionName).Msg("invoked")
+			l.Logger.WithLevel(l.EventLevel).Str("function", e.FunctionName).Msg("invoked")
 		}
 	case *fxevent.Stopping:
-		l.Logger.Info().Str("signal", strings.ToUpper(e.Signal.String())).Msg("received signal")
+		l.Logger.WithLevel(l.EventLevel).Str("signal", strings.ToUpper(e.Signal.String())).Msg("received signal")
 	case *fxevent.Stopped:
 		if e.Err != nil {
 			l.Logger.Error().Err(e.Err).Msg("stop failed")
@@ -89,30 +90,25 @@ func (l *logger) LogEvent(event fxevent.Event) {
 		if e.Err != nil {
 			l.Logger.Error().Err(e.Err).Msg("start failed")
 		} else {
-			l.Logger.Info().Msg("started")
+			l.Logger.WithLevel(l.EventLevel).Msg("started")
 		}
 	case *fxevent.LoggerInitialized:
 		if e.Err != nil {
 			l.Logger.Error().Err(e.Err).Msg("custom logger initialization failed")
 		} else {
-			l.Logger.Info().Str("function", e.ConstructorName).Msg("initialized custom fxevent.Logger")
+			l.Logger.WithLevel(l.EventLevel).Str("function", e.ConstructorName).Msg("initialized custom fxevent.Logger")
 		}
 	}
 }
 
 // Default logger for fxevent.
-func Default() func() fxevent.Logger {
-	l := log.Output(zerolog.ConsoleWriter{
-		Out:        os.Stderr,
-		TimeFormat: time.RFC3339,
-		NoColor:    true,
-	})
-	return WithZerolog(l)
-}
-
-// WithZerolog customize zerolog instance for fxevent.
-func WithZerolog(l zerolog.Logger) func() fxevent.Logger {
-	return func() fxevent.Logger {
-		return &logger{Logger: l}
+func Default() fxevent.Logger {
+	return &FxEventLogger{
+		Logger: log.Output(zerolog.ConsoleWriter{
+			Out:        os.Stderr,
+			TimeFormat: time.RFC3339,
+			NoColor:    true,
+		}),
+		EventLevel: zerolog.InfoLevel,
 	}
 }

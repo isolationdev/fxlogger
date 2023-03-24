@@ -158,7 +158,8 @@ func TestFxlogger(t *testing.T) {
 			t.Parallel()
 
 			buf := bytes.NewBufferString("")
-			WithZerolog(zerolog.New(buf))().LogEvent(tt.give)
+			logger := &FxEventLogger{Logger: zerolog.New(buf), EventLevel: zerolog.InfoLevel}
+			logger.LogEvent(tt.give)
 
 			assert.Equal(t, tt.wantMessage, buf.String())
 		})
